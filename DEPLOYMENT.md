@@ -288,7 +288,7 @@ directly.
 
 ## 9. GitHub Actions pipeline
 
-The workflow in `.github/workflows/deploy.yml` runs for every push. It:
+The workflow in `.github/workflows/deploy.yml` runs for every push to `main`. It:
 
 1. Checks out the pushed commit.
 2. Verifies that the required repository secrets, Docker, and Kubernetes are
