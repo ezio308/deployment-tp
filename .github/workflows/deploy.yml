@@ -1,0 +1,94 @@
+name: Build and deploy
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Windows]
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+      MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+      MYSQL_APP_PASSWORD: ${{ secrets.MYSQL_APP_PASSWORD }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate deployment prerequisites
+        shell: powershell
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:MYSQL_ROOT_PASSWORD)) {
+            throw 'Add the MYSQL_ROOT_PASSWORD Actions secret before deploying.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:MYSQL_APP_PASSWORD)) {
+            throw 'Add the MYSQL_APP_PASSWORD Actions secret before deploying.'
+          }
+          kubectl config current-context
+          if ($LASTEXITCODE -ne 0) { throw 'kubectl cannot access the configured cluster.' }
+          docker info --format '{{.ServerVersion}}'
+          if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop is not available to the runner.' }
+
+      - name: Build application images
+        shell: powershell
+        run: |
+          docker build -f angular-app\dockerfile -t "deployment-tp-frontend:$env:IMAGE_TAG" angular-app
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend image build failed.' }
+          docker build -f springboot\dockerfile -t "deployment-tp-backend:$env:IMAGE_TAG" springboot
+          if ($LASTEXITCODE -ne 0) { throw 'Backend image build failed.' }
+
+      - name: Load images into Kubernetes nodes
+        shell: powershell
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'deployment-tp-images.tar'
+          try {
+            docker save -o $archive "deployment-tp-frontend:$env:IMAGE_TAG" "deployment-tp-backend:$env:IMAGE_TAG"
+            if ($LASTEXITCODE -ne 0) { throw 'Could not save the application images.' }
+
+            $nodes = kubectl get nodes -o name
+            if ($LASTEXITCODE -ne 0 -or $nodes.Count -eq 0) { throw 'Could not list Kubernetes nodes.' }
+            foreach ($node in $nodes) {
+              $nodeName = $node -replace '^node/', ''
+              docker cp $archive "${nodeName}:/root/deployment-tp-images.tar"
+              if ($LASTEXITCODE -ne 0) { throw "Could not copy images to $nodeName." }
+              docker exec $nodeName ctr --namespace k8s.io images import /root/deployment-tp-images.tar
+              if ($LASTEXITCODE -ne 0) { throw "Could not import images on $nodeName." }
+              docker exec $nodeName rm -f /root/deployment-tp-images.tar
+              if ($LASTEXITCODE -ne 0) { throw "Could not remove the temporary image archive from $nodeName." }
+            }
+          }
+          finally {
+            if (Test-Path -LiteralPath $archive) {
+              Remove-Item -LiteralPath $archive -Force
+            }
+          }
+
+      - name: Apply Kubernetes manifests
+        shell: powershell
+        run: |
+          $secretArgs = @(
+            'create', 'secret', 'generic', 'db-credentials',
+            '--from-literal=username=demo_app',
+            "--from-literal=password=$env:MYSQL_APP_PASSWORD",
+            "--from-literal=root-password=$env:MYSQL_ROOT_PASSWORD",
+            '--dry-run=client', '-o', 'yaml'
+          )
+          & kubectl @secretArgs | kubectl apply -f -
+          if ($LASTEXITCODE -ne 0) { throw 'Could not apply the database credentials Secret.' }
+
+          kubectl apply -f k8s\
+          if ($LASTEXITCODE -ne 0) { throw 'Could not apply the Kubernetes manifests.' }
+
+          kubectl set image deployment/frontend "frontend=deployment-tp-frontend:$env:IMAGE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not update the frontend image.' }
+          kubectl set image deployment/backend "backend=deployment-tp-backend:$env:IMAGE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not update the backend image.' }
+
+          kubectl rollout status deployment/mysql --timeout=300s
+          if ($LASTEXITCODE -ne 0) { throw 'MySQL rollout did not complete.' }
+          kubectl rollout status deployment/backend --timeout=300s
+          if ($LASTEXITCODE -ne 0) { throw 'Backend rollout did not complete.' }
+          kubectl rollout status deployment/frontend --timeout=300s
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend rollout did not complete.' }

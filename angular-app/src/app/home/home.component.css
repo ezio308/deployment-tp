@@ -1,0 +1,145 @@
+.centered-div {
+  display: flex;
+  flex-direction: column; /* Stack elements vertically */
+  align-items: stretch;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 48px 24px;
+  background: #f4f7fb;
+  color: #172033;
+}
+
+.page-heading,
+.table-container,
+.user-form {
+  width: min(100%, 820px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.page-heading {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  color: #5267d8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.page-heading h1 {
+  margin: 8px 0;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+}
+
+.page-heading p {
+  margin: 0;
+  color: #687386;
+}
+
+.table-container {
+  overflow: hidden;
+  border-collapse: collapse;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(26, 40, 75, 0.08);
+  text-align: left;
+}
+
+.table-container th,
+.table-container td {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e8ecf3;
+}
+
+.table-container th {
+  background: #f8f9fc;
+  color: #657187;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.table-container tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-container tbody tr:hover {
+  background: #f8f9ff;
+}
+
+.user-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.user-form input {
+  min-width: 180px;
+  flex: 1;
+  padding: 11px 14px;
+  border: 1px solid #d8deea;
+  border-radius: 8px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+}
+
+.user-form input:focus {
+  border-color: #5267d8;
+  outline: 3px solid rgba(82, 103, 216, 0.15);
+}
+
+.add-button,
+.delete-button {
+  border: none;
+  cursor: pointer;
+}
+
+.add-button {
+  padding: 11px 18px;
+  border-radius: 8px;
+  background: #5267d8;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+}
+
+.add-button:hover {
+  background: #4054c3;
+}
+
+.delete-button {
+  padding: 8px;
+  border-radius: 6px;
+  background: transparent;
+  color: #cf4454;
+  font-size: 1rem;
+}
+
+.delete-button:hover {
+  background: #fff0f1;
+}
+
+.fa-trash {
+  color: inherit;
+}
+
+@media (max-width: 560px) {
+  .centered-div {
+    padding: 32px 16px;
+  }
+
+  .table-container th,
+  .table-container td {
+    padding: 12px 10px;
+  }
+
+  .table-container th {
+    font-size: 0.65rem;
+  }
+}

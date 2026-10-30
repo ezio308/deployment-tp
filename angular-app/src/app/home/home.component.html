@@ -1,0 +1,42 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+
+<div class="centered-div">
+  <header class="page-heading">
+    <span class="eyebrow">User directory</span>
+    <h1>Manage users</h1>
+    <p>View and update your user list.</p>
+  </header>
+
+  <table class="table-container">
+    <thead>
+      <tr>
+        <th scope="col">ID Maher Amdouni</th>
+        <th scope="col">First Name</th>
+        <th scope="col">Last Name</th>
+        <th scope="col">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let user of usersList">
+        <td>{{user.id}}</td>
+        <td>{{user.firstName}}</td>
+        <td>{{user.lastName}}</td>
+        <td>
+          <button
+            type="button"
+            class="delete-button"
+            aria-label="Delete user"
+            (click)="deleteUser(user?.id || '')">
+            <i class="fa fa-trash" aria-hidden="true"></i>
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="user-form">
+    <input type="text" placeholder="First Name" #firstname aria-label="First name">
+    <input type="text" placeholder="Last Name" #lastname aria-label="Last name">
+    <button class="add-button" (click)="addUser(firstname.value,lastname.value)">Add user</button>
+  </div>
+</div>
