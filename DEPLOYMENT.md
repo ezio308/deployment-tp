@@ -108,7 +108,7 @@ install/configure a suitable dynamic storage provisioner or update
 Clone the repository and enter its root directory:
 
 ```powershell
-git clone https://github.com/MaherAmdounii/deployment-tp.git
+git clone https://github.com/ezio308/deployment-tp.git
 Set-Location deployment-tp
 ```
 
@@ -222,9 +222,9 @@ database version upgrade requires a planned migration, not a routine apply.
 
 ### Build the frontend and backend images
 
-The Kubernetes Deployments use `imagePullPolicy: Never`. Images must therefore
-be present in each Kubernetes node's containerd image store. Docker Desktop's
-Docker image store and Kubernetes' containerd image store are separate.
+The Kubernetes Deployments use `imagePullPolicy: Never`, so the cluster must
+be able to see the locally built images. In this Docker Desktop cluster,
+Kubernetes uses the Docker Desktop image store.
 
 Build both images from the repository root:
 
@@ -236,47 +236,14 @@ docker build -f springboot\dockerfile -t deployment-tp-backend:local springboot
 if ($LASTEXITCODE -ne 0) { throw "Backend image build failed." }
 ```
 
-Transfer them to every Docker Desktop Kubernetes node:
-
-```powershell
-$archive = Join-Path $env:TEMP "deployment-tp-images.tar"
-
-try {
-  docker save -o $archive deployment-tp-frontend:local deployment-tp-backend:local
-  if ($LASTEXITCODE -ne 0) { throw "Could not save images." }
-
-  $nodes = kubectl get nodes -o name
-  if ($LASTEXITCODE -ne 0 -or $nodes.Count -eq 0) {
-    throw "Could not find Kubernetes nodes."
-  }
-
-  foreach ($node in $nodes) {
-    $nodeName = $node -replace '^node/', ''
-    docker cp $archive "${nodeName}:/root/deployment-tp-images.tar"
-    if ($LASTEXITCODE -ne 0) { throw "Could not copy images to $nodeName." }
-
-    docker exec $nodeName ctr --namespace k8s.io images import /root/deployment-tp-images.tar
-    if ($LASTEXITCODE -ne 0) { throw "Could not import images on $nodeName." }
-
-    docker exec $nodeName rm -f /root/deployment-tp-images.tar
-    if ($LASTEXITCODE -ne 0) { throw "Could not remove the temporary archive from $nodeName." }
-  }
-}
-finally {
-  if (Test-Path -LiteralPath $archive) {
-    Remove-Item -LiteralPath $archive -Force
-  }
-}
-```
-
-This transfer procedure is specific to Docker Desktop clusters whose Kubernetes
-nodes are Docker containers and provide `ctr`. For a remote cluster or a
-different Kubernetes distribution, publish images to a container registry and
-update the Deployments to use images the cluster can pull.
+The images are available to this Docker Desktop Kubernetes cluster after the
+build; no node-container copy is needed. For a remote cluster or a different
+Kubernetes distribution, publish images to a container registry and update
+the Deployments to use images the cluster can pull.
 
 ### Apply all manifests
 
-After creating `db-credentials` and loading the images:
+After creating `db-credentials` and building the images:
 
 ```powershell
 kubectl apply -f k8s\
@@ -327,17 +294,16 @@ The workflow in `.github/workflows/deploy.yml` runs for every push. It:
 2. Verifies that the required repository secrets, Docker, and Kubernetes are
    available.
 3. Builds the Angular and Spring Boot Docker images tagged with the commit SHA.
-4. Saves the images and imports them into each Docker Desktop Kubernetes
-   node's containerd store.
-5. Creates/updates `db-credentials` from the repository Actions secrets.
-6. Applies all YAML files under `k8s\`.
-7. Updates the frontend and backend Deployments to the images built for that
+4. Creates/updates `db-credentials` from the repository Actions secrets.
+5. Applies all YAML files under `k8s\`.
+6. Updates the frontend and backend Deployments to the images built for that
    commit.
-8. Waits for MySQL, backend, and frontend rollouts to finish.
+7. Waits for MySQL, backend, and frontend rollouts to finish.
 
 The workflow does not install Docker Desktop, enable Kubernetes, or install
 Traefik. Those are cluster prerequisites. It also does not use a container
-registry; it transfers images directly to the local cluster.
+registry; it uses the Docker Desktop image store shared with this local
+cluster.
 
 ### Configure the self-hosted Windows runner
 

@@ -39,32 +39,6 @@ jobs:
           docker build -f springboot\dockerfile -t "deployment-tp-backend:$env:IMAGE_TAG" springboot
           if ($LASTEXITCODE -ne 0) { throw 'Backend image build failed.' }
 
-      - name: Load images into Kubernetes nodes
-        shell: powershell
-        run: |
-          $archive = Join-Path $env:RUNNER_TEMP 'deployment-tp-images.tar'
-          try {
-            docker save -o $archive "deployment-tp-frontend:$env:IMAGE_TAG" "deployment-tp-backend:$env:IMAGE_TAG"
-            if ($LASTEXITCODE -ne 0) { throw 'Could not save the application images.' }
-
-            $nodes = kubectl get nodes -o name
-            if ($LASTEXITCODE -ne 0 -or $nodes.Count -eq 0) { throw 'Could not list Kubernetes nodes.' }
-            foreach ($node in $nodes) {
-              $nodeName = $node -replace '^node/', ''
-              docker cp $archive "${nodeName}:/root/deployment-tp-images.tar"
-              if ($LASTEXITCODE -ne 0) { throw "Could not copy images to $nodeName." }
-              docker exec $nodeName ctr --namespace k8s.io images import /root/deployment-tp-images.tar
-              if ($LASTEXITCODE -ne 0) { throw "Could not import images on $nodeName." }
-              docker exec $nodeName rm -f /root/deployment-tp-images.tar
-              if ($LASTEXITCODE -ne 0) { throw "Could not remove the temporary image archive from $nodeName." }
-            }
-          }
-          finally {
-            if (Test-Path -LiteralPath $archive) {
-              Remove-Item -LiteralPath $archive -Force
-            }
-          }
-
       - name: Apply Kubernetes manifests
         shell: powershell
         run: |
